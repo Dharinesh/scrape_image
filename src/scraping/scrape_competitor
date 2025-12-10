@@ -1,0 +1,237 @@
+import time
+import json
+import csv
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+import random
+
+class AmazonReviewsScraper:
+    def __init__(self, headless=True):
+        """Initialize the scraper with Chrome options"""
+        self.options = Options()
+        if headless:
+            self.options.add_argument('--headless')
+        self.options.add_argument('--no-sandbox')
+        self.options.add_argument('--disable-dev-shm-usage')
+        self.options.add_argument('--disable-blink-features=AutomationControlled')
+        self.options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        self.options.add_experimental_option('useAutomationExtension', False)
+        
+        # Set user agent to avoid detection
+        self.options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+        
+        self.driver = None
+        self.wait = None
+    
+    def start_driver(self):
+        """Start the Chrome driver"""
+        try:
+            self.driver = webdriver.Chrome(options=self.options)
+            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            self.wait = WebDriverWait(self.driver, 10)
+            print("Driver started successfully")
+        except Exception as e:
+            print(f"Error starting driver: {e}")
+            raise
+    
+    def get_reviews_url(self, product_url):
+        """Convert product URL to reviews URL"""
+        if '/dp/' in product_url:
+            asin = product_url.split('/dp/')[1].split('/')[0]
+            return f"https://www.amazon.com/product-reviews/{asin}/ref=cm_cr_dp_d_show_all_btm?ie=UTF8&reviewerType=all_reviews&filterByStar=critical"
+        else:
+            raise ValueError("Invalid Amazon product URL")
+    
+    def scrape_reviews(self, product_url, max_pages=5):
+        """Scrape reviews from Amazon product page"""
+        if not self.driver:
+            self.start_driver()
+        
+        reviews_url = self.get_reviews_url(product_url)
+        reviews_data = []
+        
+        try:
+            print(f"Navigating to reviews page: {reviews_url}")
+            self.driver.get(reviews_url)
+            
+            # Wait for page to load
+            time.sleep(random.uniform(20, 30))
+            
+            for page in range(1, max_pages + 1):
+                print(f"Scraping page {page}...")
+                
+                # Wait for reviews to load
+                try:
+                    self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '[data-hook="review"]')))
+                except TimeoutException:
+                    print("No reviews found on this page")
+                    break
+                
+                # Find all review containers
+                review_elements = self.driver.find_elements(By.CSS_SELECTOR, '[data-hook="review"]')
+                
+                for review_element in review_elements:
+                    try:
+                        review_data = self.extract_review_data(review_element)
+                        if review_data:
+                            reviews_data.append(review_data)
+                    except Exception as e:
+                        print(f"Error extracting review: {e}")
+                        continue
+                
+                # Try to go to next page
+                if page < max_pages:
+                    if not self.go_to_next_page():
+                        print("No more pages available")
+                        break
+                
+                # Random delay between pages
+                time.sleep(random.uniform(2, 5))
+            
+            print(f"Successfully scraped {len(reviews_data)} reviews")
+            return reviews_data
+            
+        except Exception as e:
+            print(f"Error scraping reviews: {e}")
+            return reviews_data
+    
+    def extract_review_data(self, review_element):
+        """Extract data from a single review element"""
+        try:
+            review_data = {}
+            
+            # Review title
+            try:
+                title_element = review_element.find_element(By.CSS_SELECTOR, '[data-hook="review-title"]')
+                review_data['title'] = title_element.text.strip()
+            except NoSuchElementException:
+                review_data['title'] = "N/A"
+            
+            # Rating
+            try:
+                rating_element = review_element.find_element(By.CSS_SELECTOR, '[data-hook="review-star-rating"]')
+                rating_text = rating_element.get_attribute('class')
+                # Extract rating from class name (e.g., "a-star-5" -> 5)
+                rating = rating_text.split('a-star-')[1].split()[0] if 'a-star-' in rating_text else "N/A"
+                review_data['rating'] = rating
+            except NoSuchElementException:
+                review_data['rating'] = "N/A"
+            
+            # Review text
+            try:
+                text_element = review_element.find_element(By.CSS_SELECTOR, '[data-hook="review-body"]')
+                review_data['text'] = text_element.text.strip()
+            except NoSuchElementException:
+                review_data['text'] = "N/A"
+            
+            # Reviewer name
+            try:
+                author_element = review_element.find_element(By.CSS_SELECTOR, '[data-hook="genome-widget"] a')
+                review_data['author'] = author_element.text.strip()
+            except NoSuchElementException:
+                review_data['author'] = "N/A"
+            
+            # Review date
+            try:
+                date_element = review_element.find_element(By.CSS_SELECTOR, '[data-hook="review-date"]')
+                review_data['date'] = date_element.text.strip()
+            except NoSuchElementException:
+                review_data['date'] = "N/A"
+            
+            # Verified purchase
+            try:
+                verified_element = review_element.find_element(By.CSS_SELECTOR, '[data-hook="avp-badge"]')
+                review_data['verified_purchase'] = "Yes" if verified_element else "No"
+            except NoSuchElementException:
+                review_data['verified_purchase'] = "No"
+            
+            # Helpful votes
+            try:
+                helpful_element = review_element.find_element(By.CSS_SELECTOR, '[data-hook="helpful-vote-statement"]')
+                review_data['helpful_votes'] = helpful_element.text.strip()
+            except NoSuchElementException:
+                review_data['helpful_votes'] = "0"
+            
+            return review_data
+            
+        except Exception as e:
+            print(f"Error extracting review data: {e}")
+            return None
+    
+    def go_to_next_page(self):
+        """Navigate to the next page of reviews"""
+        try:
+            next_button = self.driver.find_element(By.CSS_SELECTOR, 'li.a-last a')
+            if next_button.is_enabled():
+                next_button.click()
+                time.sleep(random.uniform(2, 4))
+                return True
+            else:
+                return False
+        except NoSuchElementException:
+            return False
+
+    def save_to_csv(self, reviews_data, product_id):
+        """Save reviews data to CSV file"""
+        if not reviews_data:
+            print("No data to save")
+            return
+        
+        fieldnames = ['title', 'rating', 'text', 'author', 'date', 'verified_purchase', 'helpful_votes']
+        filename = f"amazon_reviews_{product_id}.csv"
+
+        with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(reviews_data)
+        
+        print(f"Data saved to {filename}")
+    
+    def close_driver(self):
+        """Close the browser driver"""
+        if self.driver:
+            self.driver.quit()
+            print("Driver closed")
+
+def main():
+    """Example usage of the AmazonReviewsScraper"""
+    # Initialize scraper
+    scraper = AmazonReviewsScraper(headless=False)  # Set to True for headless mode
+    
+    try:
+        # Example Amazon product URL
+        product_id = input("enter product id: ") 
+        product_url = f"https://www.amazon.com/dp/{product_id}"  
+        maxp = input("enter max pages to scrape: ")  # Replace with actual max pages
+        # Scrape reviews
+        reviews = scraper.scrape_reviews(product_url, max_pages=int(maxp))
+        
+        # Save data
+        if reviews:
+            scraper.save_to_csv(reviews, product_id)
+            print(f"Scraped {len(reviews)} reviews for product ID {product_id}")
+            
+            # Print first few reviews
+            print("\nFirst 3 reviews:")
+            for i, review in enumerate(reviews[:3], 1):
+                print(f"\n--- Review {i} ---")
+                print(f"Title: {review['title']}")
+                print(f"Rating: {review['rating']}")
+                print(f"Author: {review['author']}")
+                print(f"Date: {review['date']}")
+                print(f"Verified: {review['verified_purchase']}")
+                print(f"Text: {review['text'][:100]}...")
+        
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+    
+    finally:
+        # Always close the driver
+        scraper.close_driver()
+
+if __name__ == "__main__":
+    main()

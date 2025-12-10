@@ -1,0 +1,60 @@
+scraping_task:
+  description: >
+    Navigate to the provided Amazon product link and scrape ALL customer reviews across multiple pages.
+    
+    IMPORTANT INSTRUCTIONS:
+    1. Start by scraping reviews from the first page
+    2. Extract the following data for each review:
+       - ASIN (product identifier)
+       - Customer Name
+       - Rating (star rating)
+       - Review Title
+       - Review Text/Content
+       - Review Date
+       - Verified Purchase status (if available)
+       - Helpful votes (if available)
+    
+    3. PAGINATION HANDLING:
+       - After scraping the current page, check for the "Next" button using CSS selector: "nav[data-hook='pagination-bar'] li.a-last a"
+       - If the "Next" button exists and is clickable (not disabled), click it to go to the next page
+       - Continue scraping reviews from each subsequent page
+       - Repeat this process until you reach the last page (when Next button is disabled or doesn't exist)
+       - Keep track of the current page number for reference
+    
+    4. DATA COLLECTION:
+       - Accumulate all reviews from all pages into a single dataset
+       - Ensure no duplicate reviews are collected
+       - Add a "Page_Number" field to track which page each review came from
+    
+    5. ERROR HANDLING:
+       - If a page fails to load, log the error and continue with the next page
+       - If pagination fails, ensure already collected data is preserved
+       - Handle cases where reviews might be loading dynamically (wait for elements to load)
+    
+    6. COMPLETION CRITERIA:
+       - Stop when the "Next" button is no longer available or clickable
+       - Ensure all available review pages have been processed
+       - Provide a summary of total pages scraped and total reviews collected
+  
+  expected_output: >
+    A comprehensive structured dataset containing ALL customer reviews from ALL pages of the Amazon product.
+    The dataset should include:
+    - ASIN
+    - Customer_Name
+    - Rating (1-5 stars)
+    - Review_Title
+    - Review_Text
+    - Review_Date
+    - Verified_Purchase (Yes/No)
+    - Helpful_Votes
+    - Page_Number
+    
+    The data should be saved in a .csv file with appropriate headers.
+    Include a summary at the end showing:
+    - Total number of pages scraped
+    - Total number of reviews collected
+    - Any errors encountered during scraping
+    
+    File naming convention: customer_reviews_all_pages_[timestamp].csv
+  
+  agent: scraper
