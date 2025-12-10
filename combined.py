@@ -40,7 +40,14 @@ class AmazonRufusScraper:
 
     def start_driver(self):
         try:
-            self.driver = webdriver.Chrome(options=self.options)
+            from selenium.webdriver.chrome.service import Service
+            import os
+            
+            # Path to chromedriver in project folder
+            chrome_driver_path = os.path.join(os.getcwd(), 'chromedriver.exe')
+            
+            service = Service(chrome_driver_path)
+            self.driver = webdriver.Chrome(service=service, options=self.options)
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             self.wait = WebDriverWait(self.driver, 60)
             print("✅ Chrome driver started successfully")
@@ -331,11 +338,18 @@ class AmazonReviewsScraper:
         self.wait = None
     def start_driver(self):
         try:
-            self.driver = webdriver.Chrome(options=self.options)
+            from selenium.webdriver.chrome.service import Service
+            import os
+            
+            # Path to chromedriver in project folder
+            chrome_driver_path = os.path.join(os.getcwd(), 'chromedriver.exe')
+            
+            service = Service(chrome_driver_path)
+            self.driver = webdriver.Chrome(service=service, options=self.options)
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            # Increase wait time to be more tolerant of slower loads / redirects
-            self.wait = WebDriverWait(self.driver, 20)
-            print("Driver started successfully")
+            self.wait = WebDriverWait(self.driver, 60)
+            print("✅ Chrome driver started successfully")
+            return True
         except Exception as e:
             print(f"Error starting driver: {e}")
             raise

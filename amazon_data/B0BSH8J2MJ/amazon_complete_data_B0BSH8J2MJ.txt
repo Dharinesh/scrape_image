@@ -1,0 +1,27 @@
+================================================================================
+AMAZON PRODUCT DATA EXTRACTION RESULTS
+================================================================================
+
+==================================================
+CUSTOMER INSIGHTS
+==================================================
+
+CUSTOMERS SAY SUMMARY:
+-------------------------
+Customers find the gym supporter to be of good quality, comfortable, and well-fitting with nice tightness. The fabric receives positive feedback for being soft and breathable, and customers appreciate its value for money and suitability for gym and running activities. They praise its support, with one customer noting it provides adequate lower abdomen support. However, several customers report that the size runs much smaller than expected.
+
+CUSTOMER ASPECTS (8 found):
+------------------------------
+Quality
+Comfort
+Fit
+Fabric quality
+Value for money
+Use
+Support
+Size
+==================================================
+
+================================================================================
+END OF REPORT
+================================================================================
